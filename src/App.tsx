@@ -11,6 +11,7 @@ import "./App.css"
 import { Message, WebSocketMessage, ChatMessage, UptimeData } from "./types.js"
 import { getStoredUsername } from "./utils.js"
 import { RA } from "../tunnel/client.js"
+import { tappdV4Base64 } from "./samples/tdxV4Tappd.js"
 
 const baseUrl =
   document.location.hostname === "localhost"
@@ -25,6 +26,7 @@ function App() {
   const [connected, setConnected] = useState<boolean>(false)
   const [uptime, setUptime] = useState<string>("")
   const [hiddenMessagesCount, setHiddenMessagesCount] = useState<number>(0)
+  const [verifyResult, setVerifyResult] = useState<string>("")
   const wsRef = useRef<WebSocket | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -145,6 +147,36 @@ function App() {
     setNewMessage(e.target.value)
   }
 
+  const verifyTdxInBrowser = useCallback(async () => {
+    setVerifyResult("Verifying TDX quote...")
+    try {
+      // Dynamic import to avoid loading QVL until needed
+      const qvl = await import(/* @vite-ignore */ "../qvl/index.js")
+
+      // Try full verification first (may fail in browser without polyfills)
+      const ok = qvl.verifyTdxBase64(tappdV4Base64, { date: Date.parse("2025-09-01"), crls: [] })
+      if (ok) {
+        setVerifyResult("✅ TDX v4 (Tappd) verification succeeded")
+        return
+      }
+      setVerifyResult("❌ Verification returned false")
+    } catch (err) {
+      try {
+        // Fallback: import only parser/formatters that avoid Node crypto
+        const structs = await import(/* @vite-ignore */ "../qvl/structs.js")
+        const { hex } = await import(/* @vite-ignore */ "../qvl/utils.js")
+        const { body } = structs.parseTdxQuoteBase64(tappdV4Base64)
+        setVerifyResult(
+          `Parsed with QVL structs. MRTD=${hex(body.mr_td)} report_data=${hex(body.report_data)}. Verify error: ${(err as Error)?.message || err}`,
+        )
+      } catch (inner) {
+        setVerifyResult(`Failed to import/parse QVL: ${(inner as Error)?.message || inner}`)
+        throw inner
+      }
+      throw err
+    }
+  }, [])
+
   return (
     <div className="chat-container">
       <div className="chat-header">
@@ -192,6 +224,27 @@ function App() {
             >
               Refresh
             </a>
+            <span style={{ marginLeft: 12 }}>
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  verifyTdxInBrowser()
+                }}
+                style={{
+                  marginLeft: 8,
+                  padding: "4px 8px",
+                  fontSize: "0.85em",
+                  cursor: "pointer",
+                }}
+              >
+                Verify TDX v4 (Tappd)
+              </button>
+            </span>
+            {verifyResult && (
+              <div style={{ marginTop: 6, fontSize: "0.85em", color: "#333" }}>
+                {verifyResult}
+              </div>
+            )}
           </div>
         )}
         {hiddenMessagesCount > 0 && (
