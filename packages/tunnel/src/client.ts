@@ -9,7 +9,7 @@ import {
   verifyTdx,
 } from "ra-https-qvl"
 import { base64 as scureBase64 } from "@scure/base"
-import { encode, decode } from "cbor-x"
+import { encode as encodeCbor, decode as decodeCbor } from "cbor-x"
 import createDebug from "debug"
 
 import {
@@ -20,6 +20,7 @@ import {
   ControlChannelKXConfirm,
   ControlChannelEncryptedMessage,
   RAEncryptedMessage,
+  VerifierData,
 } from "./types.js"
 import {
   isControlChannelEncryptedMessage,
@@ -65,6 +66,12 @@ export class TunnelClient {
 
   public serverX25519PublicKey?: Uint8Array
   public symmetricKey?: Uint8Array // 32 byte key for XSalsa20-Poly1305
+
+  // Additional bytes used to bind X25519PublicKey to report_data
+  public reportBindingData?: {
+    runtimeData: Uint8Array | null
+    verifierData: VerifierData | null
+  }
 
   private pendingRequests = new Map<
     string,
@@ -204,7 +211,7 @@ export class TunnelClient {
           } else {
             bytes = new Uint8Array(event.data)
           }
-          message = decode(bytes)
+          message = decodeCbor(bytes)
         } catch (error) {
           console.error("Error parsing WebSocket message:", error)
         }
@@ -249,6 +256,21 @@ export class TunnelClient {
             this.config.match(validQuote) !== true
           ) {
             throw new Error("Error opening channel: custom validation failed")
+          }
+
+          // Decode and store report binding data
+          try {
+            const runtimeData = message.runtime_data
+              ? scureBase64.decode(message.runtime_data)
+              : null
+            const verifierData = message.verifier_data
+              ? decodeCbor(scureBase64.decode(message.verifier_data))
+              : null
+            if (runtimeData || verifierData) {
+              this.reportBindingData = { runtimeData, verifierData }
+            }
+          } catch {
+            console.error("ra-https: Malformed report binding data")
           }
 
           // Generate and send a symmetric encryption key
@@ -312,7 +334,7 @@ export class TunnelClient {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       // Send unencrypted client_kx messages during handshake
       if (isControlChannelKXConfirm(message)) {
-        const data = encode(message)
+        const data = encodeCbor(message)
         this.ws.send(data)
         return
       }
@@ -323,7 +345,7 @@ export class TunnelClient {
       }
 
       const envelope = this.#encryptPayload(message)
-      this.ws.send(encode(envelope))
+      this.ws.send(encodeCbor(envelope))
     } else {
       throw new Error("WebSocket not connected")
     }
@@ -334,7 +356,7 @@ export class TunnelClient {
       throw new Error("Missing symmetric key")
     }
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
-    const plaintext = encode(payload)
+    const plaintext = encodeCbor(payload)
     const ciphertext = sodium.crypto_secretbox_easy(
       plaintext,
       nonce,
@@ -358,7 +380,7 @@ export class TunnelClient {
       nonce,
       this.symmetricKey,
     )
-    return decode(plaintext)
+    return decodeCbor(plaintext)
   }
 
   #handleTunnelResponse(response: RAEncryptedHTTPResponse): void {

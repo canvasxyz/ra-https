@@ -4,7 +4,7 @@ import { Express } from "express"
 import httpMocks, { RequestMethod } from "node-mocks-http"
 import { EventEmitter } from "events"
 import sodium from "libsodium-wrappers"
-import { encode, decode } from "cbor-x"
+import { encode as encodeCbor, decode as decodeCbor } from "cbor-x"
 import createDebug from "debug"
 
 import {
@@ -17,6 +17,7 @@ import {
   ControlChannelEncryptedMessage,
   QuoteData,
   VerifierData,
+  ControlChannelKXAnnounce,
 } from "./types.js"
 import {
   isControlChannelKXConfirm,
@@ -198,12 +199,18 @@ export class TunnelServer {
 
       // Immediately announce server key-exchange public key to the client
       try {
-        const serverKxMessage = {
+        const serverKxMessage: ControlChannelKXAnnounce = {
           type: "server_kx",
           x25519PublicKey: Buffer.from(this.x25519PublicKey).toString("base64"),
           quote: Buffer.from(this.quote).toString("base64"),
+          runtime_data: this.runtimeData
+            ? Buffer.from(this.runtimeData).toString("base64")
+            : null,
+          verifier_data: this.verifierData
+            ? encodeCbor(this.verifierData).toString("base64")
+            : null,
         }
-        controlWs.send(encode(serverKxMessage))
+        controlWs.send(encodeCbor(serverKxMessage))
       } catch (e) {
         console.error("Failed to send server_kx message:", e)
       }
@@ -241,7 +248,7 @@ export class TunnelServer {
           let message
           try {
             const data = args[0] as Buffer
-            message = decode(new Uint8Array(data))
+            message = decodeCbor(new Uint8Array(data))
           } catch (error: any) {
             console.error("Received invalid CBOR message")
             return true
@@ -588,7 +595,7 @@ export class TunnelServer {
       throw new Error("Missing symmetric key for socket (outbound)")
     }
     const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES)
-    const plaintext = encode(payload)
+    const plaintext = encodeCbor(payload)
     const ciphertext = sodium.crypto_secretbox_easy(plaintext, nonce, key)
     return {
       type: "enc",
@@ -609,7 +616,7 @@ export class TunnelServer {
     const nonce = envelope.nonce
     const ciphertext = envelope.ciphertext
     const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key)
-    return decode(plaintext)
+    return decodeCbor(plaintext)
   }
 
   /**
@@ -617,7 +624,7 @@ export class TunnelServer {
    */
   private sendEncrypted(controlWs: WebSocket, payload: unknown): void {
     const env = this.#encryptForSocket(controlWs, payload)
-    controlWs.send(encode(env))
+    controlWs.send(encodeCbor(env))
     const l = this.livenessBySocket.get(controlWs)
     if (l) l.lastActivityMs = Date.now()
   }

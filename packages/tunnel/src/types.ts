@@ -79,6 +79,8 @@ export type ControlChannelKXAnnounce = {
   type: "server_kx"
   x25519PublicKey: string // base64
   quote: string // base64
+  runtime_data: string | null // base64
+  verifier_data: string | null // cbor base64
 }
 
 // Sent by the client to deliver a symmetric key sealed to the server pubkey.
