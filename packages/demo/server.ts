@@ -21,7 +21,7 @@ import {
 import fs from "node:fs"
 import { exec } from "node:child_process"
 import { base64 } from "@scure/base"
-import { hex, parseTdxQuote } from "ra-https-qvl"
+import { hex } from "ra-https-qvl"
 
 async function getQuote(x25519PublicKey: Uint8Array): Promise<QuoteData> {
   return await new Promise<QuoteData>(async (resolve, reject) => {
@@ -43,24 +43,11 @@ async function getQuote(x25519PublicKey: Uint8Array): Promise<QuoteData> {
     const cmd = `trustauthority-cli evidence --tdx --user-data '${userDataB64}' -c config.json`
     exec(cmd, (err, stdout) => {
       if (err) {
-        reject(err)
+        return reject(err)
       }
 
       try {
         const response = JSON.parse(stdout)
-
-        // TODO: Identify report_data binding
-        const quote = base64.decode(response.tdx.quote)
-        const parsed = parseTdxQuote(quote)
-        const reportData = parsed.body.report_data
-
-        console.log(reportData)
-        console.log(hex(reportData))
-        console.log(base64.encode(reportData))
-
-        console.log("first 64", hex(reportData.slice(0, 32)))
-        console.log("last 64", hex(reportData.slice(32)))
-
         resolve({
           quote: base64.decode(response.tdx.quote),
           verifier_data: response.verifier_data,
