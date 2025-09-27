@@ -16,21 +16,24 @@ import {
   TunnelServer,
   ServerRAMockWebSocket,
   encryptedOnly,
+  QuoteData,
 } from "ra-https-tunnel"
 import fs from "node:fs"
 import { exec } from "node:child_process"
 import { base64 } from "@scure/base"
 import { hex, parseTdxQuote } from "ra-https-qvl"
 
-async function getQuote(x25519PublicKey: Uint8Array): Promise<Uint8Array> {
-  return await new Promise<Uint8Array>(async (resolve, reject) => {
+async function getQuote(x25519PublicKey: Uint8Array): Promise<QuoteData> {
+  return await new Promise<QuoteData>(async (resolve, reject) => {
     // If config.json isn't set up, return a sample quote
     if (!fs.existsSync("config.json")) {
       console.log(
         "[ra-https-demo] TDX config.json not found, serving sample quote",
       )
       const { tappdV4Base64 } = await import("./shared/samples.js")
-      resolve(base64.decode(tappdV4Base64))
+      resolve({
+        quote: base64.decode(tappdV4Base64),
+      })
       return
     }
 
@@ -58,7 +61,11 @@ async function getQuote(x25519PublicKey: Uint8Array): Promise<Uint8Array> {
         console.log("first 64", hex(reportData.slice(0, 32)))
         console.log("last 64", hex(reportData.slice(32)))
 
-        resolve(base64.decode(response.tdx.quote))
+        resolve({
+          quote: base64.decode(response.tdx.quote),
+          verifier_data: response.verifier_data,
+          runtime_data: response.runtime_data,
+        })
       } catch (err) {
         reject(err)
       }

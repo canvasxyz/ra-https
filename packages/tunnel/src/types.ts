@@ -1,3 +1,21 @@
+/** Used by trustauthority-cli to bind the public keys we provide to report_data. */
+export type VerifierData = {
+  val: Uint8Array
+  iat: Uint8Array
+  signature?: Uint8Array
+}
+
+/** Quote package including Intel VerifierData. */
+export type QuoteData = {
+  quote: Uint8Array
+  verifier_data?: VerifierData
+  runtime_data?: Uint8Array
+}
+
+/**
+ * RA-HTTPS WebSocket payloads.
+ */
+
 export type RAEncryptedHTTPRequest = {
   type: "http_request"
   requestId: string

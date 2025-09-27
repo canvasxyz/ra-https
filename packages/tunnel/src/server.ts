@@ -15,6 +15,8 @@ import {
   RAEncryptedClientCloseEvent,
   RAEncryptedServerEvent,
   ControlChannelEncryptedMessage,
+  QuoteData,
+  VerifierData,
 } from "./types.js"
 import {
   isControlChannelKXConfirm,
@@ -81,6 +83,8 @@ type TunnelServerConfig = {
 export class TunnelServer {
   public readonly server: http.Server
   public readonly quote: Uint8Array
+  public readonly verifierData: VerifierData | null
+  public readonly runtimeData: Uint8Array | null
   public readonly wss: ServerRAMockWebSocketServer
   private readonly controlWss: WebSocketServer
 
@@ -103,13 +107,16 @@ export class TunnelServer {
 
   private constructor(
     private app: Express,
-    quote: Uint8Array,
+    quoteData: QuoteData,
     publicKey: Uint8Array,
     privateKey: Uint8Array,
     config?: TunnelServerConfig,
   ) {
     this.app = app
-    this.quote = quote
+    this.quote = quoteData.quote
+    this.verifierData = quoteData.verifier_data ?? null
+    this.runtimeData = quoteData.runtime_data ?? null
+
     this.x25519PublicKey = publicKey
     this.x25519PrivateKey = privateKey
     this.server = http.createServer(app)
@@ -155,7 +162,7 @@ export class TunnelServer {
 
   static async initialize(
     app: Express,
-    getQuote: (x25519PublicKey: Uint8Array) => Promise<Uint8Array> | Uint8Array,
+    getQuote: (x25519PublicKey: Uint8Array) => Promise<QuoteData> | QuoteData,
     config?: TunnelServerConfig,
   ): Promise<TunnelServer> {
     await sodium.ready

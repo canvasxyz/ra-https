@@ -14,3 +14,5 @@ export {
   isEncryptedRequest,
   ENCRYPTED_REQUEST,
 } from "./encryptedOnly.js"
+
+export type { QuoteData, VerifierData } from "./types.js"
