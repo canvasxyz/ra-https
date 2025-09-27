@@ -35,7 +35,7 @@ async function getQuote(x25519PublicKey: Uint8Array): Promise<Uint8Array> {
     }
 
     // Otherwise, get a quote from the SEAM (requires root)
-    console.log("[ra-https-demo] Getting a quote")
+    console.log("[ra-https-demo] Getting a quote for " + hex(x25519PublicKey))
     const userDataB64 = base64.encode(x25519PublicKey)
     const cmd = `trustauthority-cli evidence --tdx --user-data '${userDataB64}' -c config.json`
     exec(cmd, (err, stdout) => {
@@ -55,8 +55,8 @@ async function getQuote(x25519PublicKey: Uint8Array): Promise<Uint8Array> {
         console.log(hex(reportData))
         console.log(base64.encode(reportData))
 
-        console.log("first 64", hex(reportData.slice(0, 64)))
-        console.log("last 64", hex(reportData.slice(64)))
+        console.log("first 64", hex(reportData.slice(0, 32)))
+        console.log("last 64", hex(reportData.slice(32)))
 
         resolve(base64.decode(response.tdx.quote))
       } catch (err) {
