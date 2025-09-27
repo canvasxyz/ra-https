@@ -20,6 +20,7 @@ import {
 import fs from "node:fs"
 import { exec } from "node:child_process"
 import { base64 } from "@scure/base"
+import { hex, parseTdxQuote } from "ra-https-qvl"
 
 async function getQuote(x25519PublicKey: Uint8Array): Promise<Uint8Array> {
   return await new Promise<Uint8Array>(async (resolve, reject) => {
@@ -44,6 +45,19 @@ async function getQuote(x25519PublicKey: Uint8Array): Promise<Uint8Array> {
 
       try {
         const response = JSON.parse(stdout)
+
+        // TODO: Identify report_data binding
+        const quote = base64.decode(response.tdx.quote)
+        const parsed = parseTdxQuote(quote)
+        const reportData = parsed.body.report_data
+
+        console.log(reportData)
+        console.log(hex(reportData))
+        console.log(base64.encode(reportData))
+
+        console.log("first 64", hex(reportData.slice(0, 64)))
+        console.log("last 64", hex(reportData.slice(64)))
+
         resolve(base64.decode(response.tdx.quote))
       } catch (err) {
         reject(err)
