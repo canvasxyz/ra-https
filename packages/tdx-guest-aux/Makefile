@@ -6,11 +6,11 @@ PWD  := $(shell pwd)
 all: modules tdx_user
 
 modules:
-        $(MAKE) -C $(KDIR) M=$(PWD) modules
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
 tdx_user: tdx_user.c uapi_tdx_guest_aux.h
 	gcc-12 -o tdx_user tdx_user.c
 
 clean:
-      	$(MAKE) -C $(KDIR) M=$(PWD) clean
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
 	rm -f tdx_user
