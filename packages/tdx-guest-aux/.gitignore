@@ -1,5 +1,9 @@
+*.cmd
 *.symvers
 *.order
 *.mod
+*.mod.c
 *.ko
 *.o
+
+./tdx_user
